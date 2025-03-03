@@ -3,146 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quick Sketch Share</title>
+    <title>Mood Color Diary</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
             padding: 20px;
+            text-align: center;
             background-color: #f0f0f0;
         }
-        canvas {
-            border: 1px solid #ccc;
-            background: white;
-            margin: 10px auto;
-            display: block;
-        }
         .toolbox {
-            margin: 10px 0;
+            margin: 20px 0;
         }
-        button, input {
-            padding: 8px;
+        .day {
+            width: 40px;
+            height: 40px;
+            display: inline-block;
             margin: 5px;
+            border: 1px solid #ccc;
             cursor: pointer;
         }
-        #shareLink {
-            margin-top: 10px;
-            word-wrap: break-word;
+        #diary {
+            max-width: 600px;
+            margin: 0 auto;
         }
-        .active {
-            background-color: #ddd;
+        input, button {
+            padding: 8px;
+            margin: 5px;
+        }
+        #periodFilter {
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <h2>Quick Sketch Share</h2>
+    <h2>Mood Color Diary</h2>
     <div class="toolbox">
-        <input type="color" id="color" value="#000000">
-        <input type="range" id="size" min="1" max="20" value="5">
-        <button id="pencil" class="active">Μολύβι</button>
-        <button id="eraser">Γόμα</button>
-        <button id="clear">Καθάρισε</button>
-        <button id="save">Αποθήκευση & Μοίρασμα</button>
-        <button id="export">Εξαγωγή σε PNG</button>
+        <input type="color" id="moodColor" value="#ffffff">
+        <input type="date" id="moodDate">
+        <button onclick="addMood()">Προσθήκη Διάθεσης</button>
     </div>
-    <canvas id="sketchCanvas" width="600" height="400"></canvas>
-    <div id="shareLink"></div>
+    <div id="periodFilter">
+        <label>Φίλτρο Περιόδου: </label>
+        <input type="date" id="startDate">
+        <input type="date" id="endDate">
+        <button onclick="filterMoods()">Εφαρμογή</button>
+    </div>
+    <div id="diary"></div>
 
     <script>
-        const canvas = document.getElementById('sketchCanvas');
-        const ctx = canvas.getContext('2d');
-        let drawing = false;
-        let isErasing = false;
+        let moods = JSON.parse(localStorage.getItem('moods')) || [];
 
-        // Ρυθμίσεις εργαλείων
-        const colorPicker = document.getElementById('color');
-        const sizeSlider = document.getElementById('size');
-        const pencilBtn = document.getElementById('pencil');
-        const eraserBtn = document.getElementById('eraser');
-        const clearBtn = document.getElementById('clear');
-        const saveBtn = document.getElementById('save');
-        const exportBtn = document.getElementById('export');
-        const shareLinkDiv = document.getElementById('shareLink');
+        // Εμφάνιση ημερολογίου
+        function renderDiary(filteredMoods = moods) {
+            const diary = document.getElementById('diary');
+            diary.innerHTML = '';
+            filteredMoods.sort((a, b) => new Date(a.date) - new Date(b.date)); // Ταξινόμηση κατά ημερομηνία
 
-        // Αρχικοποίηση
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+            filteredMoods.forEach(mood => {
+                const div = document.createElement('div');
+                div.className = 'day';
+                div.style.backgroundColor = mood.color;
+                div.title = `Ημερομηνία: ${new Date(mood.date).toLocaleDateString('el-GR')}`;
+                diary.appendChild(div);
+            });
 
-        // Ξεκίνημα σχεδίασης
-        canvas.addEventListener('mousedown', (e) => {
-            drawing = true;
-            ctx.beginPath();
-            ctx.moveTo(e.offsetX, e.offsetY);
-        });
-
-        // Σχεδίαση ή σβήσιμο
-        canvas.addEventListener('mousemove', (e) => {
-            if (drawing) {
-                if (isErasing) {
-                    ctx.globalCompositeOperation = 'destination-out';
-                    ctx.lineWidth = sizeSlider.value;
-                } else {
-                    ctx.globalCompositeOperation = 'source-over';
-                    ctx.strokeStyle = colorPicker.value;
-                    ctx.lineWidth = sizeSlider.value;
-                }
-                ctx.lineTo(e.offsetX, e.offsetY);
-                ctx.stroke();
+            if (filteredMoods.length === 0) {
+                diary.innerHTML = '<p>Δεν υπάρχουν διαθέσεις για αυτή την περίοδο.</p>';
             }
-        });
+        }
 
-        // Σταμάτημα σχεδίασης
-        canvas.addEventListener('mouseup', () => drawing = false);
-        canvas.addEventListener('mouseleave', () => drawing = false);
+        // Προσθήκη νέας διάθεσης
+        function addMood() {
+            const color = document.getElementById('moodColor').value;
+            const dateInput = document.getElementById('moodDate').value;
+            const date = dateInput ? new Date(dateInput).toISOString() : new Date().toISOString();
 
-        // Εναλλαγή Μολύβι/Γόμα
-        pencilBtn.addEventListener('click', () => {
-            isErasing = false;
-            pencilBtn.classList.add('active');
-            eraserBtn.classList.remove('active');
-        });
+            moods.push({ color, date });
+            localStorage.setItem('moods', JSON.stringify(moods));
+            renderDiary();
+        }
 
-        eraserBtn.addEventListener('click', () => {
-            isErasing = true;
-            eraserBtn.classList.add('active');
-            pencilBtn.classList.remove('active');
-        });
+        // Φιλτράρισμα διάθεσης ανά περίοδο
+        function filterMoods() {
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
 
-        // Καθαρισμός καμβά
-        clearBtn.addEventListener('click', () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            shareLinkDiv.innerText = '';
-        });
-
-        // Αποθήκευση και μοίρασμα
-        saveBtn.addEventListener('click', () => {
-            const sketchData = canvas.toDataURL('image/png');
-            const sketchId = 'sketch_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem(sketchId, sketchData);
-            const shareUrl = `${window.location.href}?sketch=${sketchId}`;
-            shareLinkDiv.innerHTML = `Μοίρασε το σκίτσο σου: <a href="${shareUrl}" target="_blank">${shareUrl}</a>`;
-        });
-
-        // Εξαγωγή σε PNG
-        exportBtn.addEventListener('click', () => {
-            const sketchData = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.href = sketchData;
-            link.download = 'sketch.png';
-            link.click();
-        });
-
-        // Φόρτωση σκίτσου από URL
-        window.addEventListener('load', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const sketchId = urlParams.get('sketch');
-            if (sketchId && localStorage.getItem(sketchId)) {
-                const img = new Image();
-                img.src = localStorage.getItem(sketchId);
-                img.onload = () => ctx.drawImage(img, 0, 0);
-                shareLinkDiv.innerText = 'Αυτό είναι το σκίτσο που μοιράστηκε!';
+            if (!startDate || !endDate || startDate > endDate) {
+                alert('Παρακαλώ διάλεξε έγκυρες ημερομηνίες!');
+                return;
             }
-        });
+
+            const filteredMoods = moods.filter(mood => {
+                const moodDate = new Date(mood.date);
+                return moodDate >= startDate && moodDate <= endDate;
+            });
+
+            renderDiary(filteredMoods);
+        }
+
+        // Αρχική εμφάνιση
+        renderDiary();
+
+        // Προεπιλογή σημερινής ημερομηνίας
+        document.getElementById('moodDate').value = new Date().toISOString().split('T')[0];
     </script>
 </body>
 </html>
