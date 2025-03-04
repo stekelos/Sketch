@@ -19,73 +19,75 @@
             background: white;
             margin: 10px auto;
             display: block;
-        }
-        input, button {
-            padding: 8px;
-            margin: 5px;
-        }
-        #periodFilter {
-            margin-top: 10px;
+            cursor: pointer;
         }
         #legend {
             margin-top: 10px;
         }
-        #debug {
-            color: red;
-            margin-top: 10px;
+        #colorChoices {
+            position: absolute;
+            display: none;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+        }
+        .colorOption {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin: 5px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <h2>Mood Color Diary (Pie Chart)</h2>
     <div class="toolbox">
-        <input type="date" id="moodDate">
-        <button onclick="addMood()">Προσθήκη Διάθεσης</button>
-    </div>
-    <div id="periodFilter">
-        <label>Φίλτρο Περιόδου: </label>
-        <input type="date" id="startDate">
-        <input type="date" id="endDate">
-        <button onclick="filterMoods()">Εφαρμογή</button>
+        <button onclick="addNewSlice()">Προσθήκη Νέας Ημέρας</button>
     </div>
     <canvas id="moodCanvas" width="400" height="400"></canvas>
     <div id="legend"></div>
-    <div id="debug"></div>
+    <div id="colorChoices">
+        <div class="colorOption" style="background-color: #FFFF00" onclick="selectColor(0)"></div>
+        <div class="colorOption" style="background-color: #FFA500" onclick="selectColor(1)"></div>
+        <div class="colorOption" style="background-color: #FF0000" onclick="selectColor(2)"></div>
+    </div>
 
     <script>
         const canvas = document.getElementById('moodCanvas');
         const ctx = canvas.getContext('2d');
         const colors = ['#FFFF00', '#FFA500', '#FF0000']; // Κίτρινο, Πορτοκαλί, Κόκκινο
+        const colorChoices = document.getElementById('colorChoices');
+        let moods = [];
+        let selectedSlice = -1;
 
         // Λειτουργίες για cookies
         function setCookie(name, value) {
+            // Αποθηκεύει τα δεδομένα σε cookie χωρίς ημερομηνία λήξης (μόνιμο)
             document.cookie = `${name}=${encodeURIComponent(JSON.stringify(value))}; path=/`;
         }
 
         function getCookie(name) {
+            // Φορτώνει τα δεδομένα από το cookie
             const value = `; ${document.cookie}`;
             const parts = value.split(`; ${name}=`);
             if (parts.length === 2) return JSON.parse(decodeURIComponent(parts.pop().split(';').shift()));
             return null;
         }
 
-        // Φόρτωση moods από cookie ή αρχικοποίηση
-        let moods = getCookie('moods') || [];
-        document.getElementById('debug').innerText = `Αρχικά δεδομένα από cookie: ${JSON.stringify(moods)}`;
+        // Φόρτωση moods από cookie κατά την εκκίνηση
+        moods = getCookie('moods') || [];
 
         // Εμφάνιση πίτας
-        function renderPieChart(filteredMoods = moods) {
+        function renderPieChart() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
             const radius = Math.min(centerX, centerY) - 20;
-            const total = filteredMoods.length || 1;
+            const total = moods.length || 1;
             const sliceAngle = (2 * Math.PI) / total;
 
-            filteredMoods.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-            // Σχεδίαση φετών
-            filteredMoods.forEach((mood, index) => {
+            moods.forEach((mood, index) => {
                 const startAngle = index * sliceAngle;
                 const endAngle = startAngle + sliceAngle;
 
@@ -93,89 +95,85 @@
                 ctx.moveTo(centerX, centerY);
                 ctx.arc(centerX, centerY, radius, startAngle, endAngle);
                 ctx.closePath();
-                ctx.fillStyle = colors[mood.state % 3];
+                ctx.fillStyle = colors[mood.state];
                 ctx.fill();
                 ctx.strokeStyle = '#000';
                 ctx.stroke();
             });
 
-            updateLegend(filteredMoods);
-            if (filteredMoods.length === 0) {
+            updateLegend();
+            if (moods.length === 0) {
                 ctx.fillStyle = '#000';
-                ctx.fillText('Δεν υπάρχουν διαθέσεις.', centerX - 80, centerY);
+                ctx.fillText('Κάνε κλικ για να ξεκινήσεις!', centerX - 80, centerY);
             }
         }
 
         // Ενημέρωση λεζάντας
-        function updateLegend(filteredMoods) {
+        function updateLegend() {
             const legend = document.getElementById('legend');
-            legend.innerHTML = filteredMoods.map(mood => 
-                `<span style="color: ${colors[mood.state % 3]}">■</span> ${new Date(mood.date).toLocaleDateString('el-GR')}`
+            legend.innerHTML = moods.map(mood => 
+                `<span style="color: ${colors[mood.state]}">■</span> ${new Date(mood.date).toLocaleDateString('el-GR')}`
             ).join('<br>');
         }
 
-        // Προσθήκη διάθεσης
-        function addMood() {
-            const dateInput = document.getElementById('moodDate').value;
-            if (!dateInput) {
-                alert('Παρακαλώ διάλεξε ημερομηνία!');
-                return;
-            }
-            const date = new Date(dateInput).toISOString();
+        // Προσθήκη νέας ημέρας
+        function addNewSlice() {
+            const today = new Date();
+            const latestDate = moods.length > 0 ? new Date(Math.max(...moods.map(m => new Date(m.date)))) : today;
+            const nextDate = new Date(latestDate);
+            nextDate.setDate(nextDate.getDate() + 1); // Επόμενη μέρα
 
-            const existingMood = moods.find(m => new Date(m.date).toDateString() === new Date(date).toDateString());
-            if (existingMood) {
-                existingMood.state = (existingMood.state + 1) % 3;
-            } else {
-                moods.push({ date, state: 0 });
-            }
-
-            setCookie('moods', moods);
-            document.getElementById('debug').innerText = `Ενημερωμένα δεδομένα: ${JSON.stringify(moods)}`;
+            moods.push({ date: nextDate.toISOString(), state: 0 }); // Ξεκινά με κίτρινο
+            setCookie('moods', moods); // Αποθήκευση στο cookie
             renderPieChart();
         }
 
-        // Φιλτράρισμα διάθεσης
-        function filterMoods() {
-            const startDate = new Date(document.getElementById('startDate').value);
-            const endDate = new Date(document.getElementById('endDate').value);
-
-            if (!startDate || !endDate || startDate > endDate) {
-                alert('Παρακαλώ διάλεξε έγκυρες ημερομηνίες!');
-                return;
+        // Επιλογή χρώματος
+        function selectColor(state) {
+            if (selectedSlice !== -1) {
+                moods[selectedSlice].state = state;
+                setCookie('moods', moods); // Ενημέρωση cookie μετά την επιλογή χρώματος
+                renderPieChart();
             }
-
-            const filteredMoods = moods.filter(mood => {
-                const moodDate = new Date(mood.date);
-                return moodDate >= startDate && moodDate <= endDate;
-            });
-
-            renderPieChart(filteredMoods);
+            colorChoices.style.display = 'none';
+            selectedSlice = -1;
         }
 
-        // Χειρισμός κλικ
+        // Χειρισμός κλικ στην πίτα
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left - canvas.width / 2;
             const y = e.clientY - rect.top - canvas.height / 2;
-            const angle = Math.atan2(y, x) < 0 ? Math.atan2(y, x) + 2 * Math.PI : Math.atan2(y, x);
-            const total = moods.length || 1;
-            const sliceAngle = (2 * Math.PI) / total;
-            const clickedSlice = Math.floor(angle / sliceAngle);
+            const distance = Math.sqrt(x * x + y * y);
+            const radius = Math.min(canvas.width / 2, canvas.height / 2) - 20;
 
-            if (clickedSlice < moods.length) {
-                moods[clickedSlice].state = (moods[clickedSlice].state + 1) % 3;
-                setCookie('moods', moods);
-                document.getElementById('debug').innerText = `Μετά το κλικ: ${JSON.stringify(moods)}`;
-                renderPieChart();
+            if (distance <= radius) { // Εντός της πίτας
+                const angle = Math.atan2(y, x) < 0 ? Math.atan2(y, x) + 2 * Math.PI : Math.atan2(y, x);
+                const total = moods.length || 1;
+                const sliceAngle = (2 * Math.PI) / total;
+                selectedSlice = Math.floor(angle / sliceAngle);
+
+                if (moods.length === 0) {
+                    addNewSlice(); // Αυτόματη προσθήκη πρώτης ημέρας
+                } else if (selectedSlice < moods.length) {
+                    // Εμφάνιση επιλογών χρώματος
+                    colorChoices.style.left = `${e.clientX}px`;
+                    colorChoices.style.top = `${e.clientY}px`;
+                    colorChoices.style.display = 'block';
+                }
+            }
+        });
+
+        // Κλείσιμο επιλογών χρώματος αν κάνεις κλικ αλλού
+        document.addEventListener('click', (e) => {
+            if (!colorChoices.contains(e.target) && e.target !== canvas) {
+                colorChoices.style.display = 'none';
+                selectedSlice = -1;
             }
         });
 
         // Αρχική εμφάνιση
         renderPieChart();
-
-        // Προεπιλογή σημερινής ημερομηνίας
-        document.getElementById('moodDate').value = new Date().toISOString().split('T')[0];
     </script>
 </body>
 </html>
