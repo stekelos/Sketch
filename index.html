@@ -69,26 +69,21 @@
         const debugDiv = document.getElementById('debug');
         let tasks = {};
 
-        // Λειτουργίες για cookies
-        function setCookie(name, value) {
-            const cookieValue = encodeURIComponent(JSON.stringify(value));
-            document.cookie = `${name}=${cookieValue}; path=/; SameSite=Lax`; // Χωρίς expires, μόνιμο
-            debugDiv.innerText = `Cookie ενημερώθηκε: ${document.cookie}`; // Debugging
+        // Φόρτωση από localStorage
+        function loadTasks() {
+            const storedTasks = localStorage.getItem('tasks');
+            tasks = storedTasks ? JSON.parse(storedTasks) : {};
+            debugDiv.innerText = `Φορτώθηκαν δεδομένα: ${JSON.stringify(tasks)}`;
         }
 
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) {
-                const cookieData = decodeURIComponent(parts.pop().split(';').shift());
-                debugDiv.innerText = `Cookie φορτώθηκε: ${cookieData}`;
-                return JSON.parse(cookieData);
-            }
-            return null;
+        // Αποθήκευση σε localStorage
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            debugDiv.innerText = `Αποθηκεύτηκαν δεδομένα: ${JSON.stringify(tasks)}`;
         }
 
-        // Φόρτωση από cookie
-        tasks = getCookie('tasks') || {};
+        // Αρχική φόρτωση
+        loadTasks();
 
         // Εμφάνιση εργασιών
         function renderTasks() {
@@ -132,7 +127,7 @@
             if (!tasks[date]) tasks[date] = [];
             tasks[date].push({ text, time });
 
-            setCookie('tasks', tasks); // Ενημέρωση cookie
+            saveTasks(); // Αποθήκευση στο localStorage
             renderTasks();
 
             // Καθαρισμός φόρμας
@@ -146,7 +141,7 @@
             if (confirm(`Είσαι σίγουρος ότι θέλεις να διαγράψεις την εργασία "${tasks[date][index].text}" στις ${tasks[date][index].time};`)) {
                 tasks[date].splice(index, 1);
                 if (tasks[date].length === 0) delete tasks[date];
-                setCookie('tasks', tasks); // Ενημέρωση cookie
+                saveTasks(); // Ενημέρωση localStorage
                 renderTasks();
             }
         }
@@ -155,7 +150,7 @@
         function confirmDeleteDay(date) {
             if (confirm(`Είσαι σίγουρος ότι θέλεις να διαγράψεις όλες τις εργασίες της ${new Date(date).toLocaleDateString('el-GR')} (${tasks[date].length} εργασίες);`)) {
                 delete tasks[date];
-                setCookie('tasks', tasks); // Ενημέρωση cookie
+                saveTasks(); // Ενημέρωση localStorage
                 renderTasks();
             }
         }
