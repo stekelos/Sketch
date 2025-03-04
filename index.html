@@ -47,10 +47,6 @@
         .delete-btn:hover {
             background: #cc0000;
         }
-        #debug {
-            color: red;
-            margin-top: 10px;
-        }
     </style>
 </head>
 <body>
@@ -62,24 +58,20 @@
         <button onclick="addTask()">Προσθήκη Εργασίας</button>
     </div>
     <div id="tasks"></div>
-    <div id="debug"></div>
 
     <script>
         const tasksDiv = document.getElementById('tasks');
-        const debugDiv = document.getElementById('debug');
         let tasks = {};
 
         // Φόρτωση από localStorage
         function loadTasks() {
             const storedTasks = localStorage.getItem('tasks');
             tasks = storedTasks ? JSON.parse(storedTasks) : {};
-            debugDiv.innerText = `Φορτώθηκαν δεδομένα: ${JSON.stringify(tasks)}`;
         }
 
         // Αποθήκευση σε localStorage
         function saveTasks() {
             localStorage.setItem('tasks', JSON.stringify(tasks));
-            debugDiv.innerText = `Αποθηκεύτηκαν δεδομένα: ${JSON.stringify(tasks)}`;
         }
 
         // Αρχική φόρτωση
